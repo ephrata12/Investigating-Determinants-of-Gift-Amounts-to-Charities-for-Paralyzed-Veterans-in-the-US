@@ -1,0 +1,375 @@
+---
+title: "STAT230: Final Report "
+subtitle: "Investigating the Determinants of average amount of most recent gifts to Charities for Paralyzed Veterans in the United States"
+author: "Ephrata Getachew"
+date: "due Monday, May 15th"
+output: 
+  pdf_document:
+    fig_height: 3
+    fig_width: 5
+---
+
+```{r include=FALSE}
+# Don't delete this chunk if you are using the mosaic package
+# This loads the mosaic and mosaicData packages
+library(mosaic)
+library(car)
+library(dplyr)
+library(GGally)
+library(leaps)
+require(MASS)
+require(kableExtra)
+require(leaps)  
+library(ggplot2)
+library(gridExtra)
+
+              
+```
+
+```{r include=FALSE}
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+# knitr settings to control how R chunks work.
+require(knitr)
+opts_chunk$set(
+  tidy=FALSE,     # display code as typed
+  size="small"    # slightly smaller font for code
+)
+trellis.par.set(theme=theme.mosaic())  
+options(digits=5)
+```
+
+## Abstract
+
+This study examined the factors influencing charitable giving to paralyzed veterans in the United States. Using a dataset comprising information on 95,412 observations, we analyzed the impact of various variables on the dollar amount of the most recent gift given to support these veterans. Through regression analysis and two-way ANOVA, we found that variables such as MAXADATE, NUMPROM, DOMAIN, and GENDER were significant predictors of the total value of lifetime gifts given. However, FEDGOV and LOCALGOV status did not show a significant association with the average amount of most recent gifts. The findings highlight the complex nature of charitable giving and provide valuable insights for fundraising and support strategies for paralyzed veterans. Future research should consider alternative analysis methods to enhance the robustness of the results.
+
+## Background & Significance:
+
+This study aims to investigate the factors that influence people's willingness to support charities for paralyzed veterans in the United States. The dataset focuses on paralyzed veterans and the charitable organizations dedicated to their welfare, specifically examining variables that affect the dollar amount of the most recent gift given to support these veterans. The research seeks to identify the variables with the greatest influence on the average dollar amount of gifts made to these charitable organizations. The study's hypotheses propose that certain variables significantly impact the dollar amount of gifts given to support paralyzed veterans through charitable organizations. The research questions explore the influence of individual characteristics, such as employment by government entities and lifetime number of promotions, on compassion for contributing to such organizations. Additionally, the study investigates the impact of gender and urbanicity on individuals' inclination to donate. By shedding light on the complex factors influencing charitable giving to paralyzed veterans, this research holds significant importance in enhancing support for these individuals and organizations.
+
+## Methods:
+
+(a) Data: The dataset used in this study is derived from the American Community Survey (ACS), which is conducted by the U.S. Census Bureau. The ACS collects comprehensive data on socio-economic and demographic factors from individuals across the United States. The dataset contains a substantial amount of information, consisting of 481 variables and 95,412 observations. The focus of the dataset revolves around paralyzed veterans and the charitable organizations supporting them, with a specific emphasis on understanding the factors that influence charitable giving. The individuals who participated in the survey represent a diverse sample of the U.S. population, encompassing various regions, age groups, and socio-economic backgrounds. The dataset provides valuable insights into the motivations and patterns of charitable giving to paralyzed veterans, allowing for a more comprehensive understanding of this important social issue.
+
+(b) Variables:The analysis involves both quantitative and categorical variables. 
+
+The quantitative variables include:
+
+- FEDGOV (% employed by federal government): Represents the percentage of individuals in the dataset who are employed by the federal government.
+- LOCALGOV (% employed by local government): Represents the percentage of individuals in the dataset who are employed by the local government.
+- MAXADATE (Most recent promotion): Measured in days, indicating the number of days since the individual's most recent promotion.
+- NUMPROM (Lifetime number of promotions received to date): Represents the total number of promotions received by the individual.
+
+The categorical variables include:
+
+- DOMAIN (Urbanicity): Categorizes the neighborhoods in which donors reside into five levels: Urban, City, Suburb, Town, and Rural.
+- GENDER: Categorizes individuals' gender into four levels: Female, Unknown/Unspecified, Male, and Non-binary/Other.
+
+(c) Statistical Methods: The statistical methods employed in this study include two-way ANOVA and multiple linear regression. Descriptive statistics will be used initially to summarize and explore the dataset, providing insights into the characteristics of the variables under investigation.MLR will be utilized to assess the influence of various independent variables on the dollar amount of the most recent gift given to support paralyzed veterans.Two-way ANOVA will be employed to compare the means of the response variable (dollar amount of the most recent gift) across different levels of categorical variables, such as gender and urbanicity. This analysis will help determine if there are significant differences in gift amounts based on these factors. Multiple linear regression will be used to develop a predictive model, considering quantitative variables such as % employed by federal government, % employed by local government, lifetime number of promotions, and most recent promotion rating. The aim is to identify which variables have a significant impact on the dollar amount of gifts, allowing for a deeper understanding of the factors influencing charitable giving. Further details regarding the specific analysis plan will be provided in subsequent sections of the report.
+
+## Dataset & Wrangling
+
+```{r include=FALSE, echo = FALSE}
+ds <- read.csv("cup98LRN.txt")      ##read in your data
+dim(ds)                             ##size of the dataset
+```
+
+```{r, include=FALSE, echo = FALSE}
+## selecting variables of interest
+smallercup <- 
+  ds %>% dplyr::select(FEDGOV, LOCALGOV, MAXADATE, NUMPROM, GENDER, DOMAIN, LASTGIFT)
+## dropping rows with missing data
+smallercup <- na.omit(smallercup)
+smallercup <- smallercup %>%
+  filter(FEDGOV != " " & LOCALGOV != " " & MAXADATE != " " & NUMPROM != " " & GENDER != " " & DOMAIN != "" & LASTGIFT != " ")
+dim(smallercup)
+```
+
+```{r, include=FALSE, echo = FALSE}
+smallercup$DOMAIN <- factor(smallercup$DOMAIN)
+levels(smallercup$DOMAIN)
+levels(smallercup$DOMAIN) <- list("C" = c("C1", "C2", "C3", "U1", "U2", "U3", "U4"),
+                                            "R" = c("R1", "R2", "R3","T1", "T2", "T3","S1", "S2", "S3" ))
+nrow(smallercup %>% filter(DOMAIN != "C" & DOMAIN != "R" & DOMAIN != "S" & DOMAIN != "T" & DOMAIN != "U" ))
+## dropping rows that have an empty character entry 
+smallercup <-
+  smallercup %>% filter(DOMAIN == "C" | DOMAIN == "R" | DOMAIN == "S" | DOMAIN == "T" | DOMAIN == "U" )
+tally( ~ DOMAIN, data = smallercup)
+```
+
+```{r, include=FALSE, echo = FALSE}
+nrow(smallercup %>% filter(GENDER != "F" & GENDER != "M" ))
+## dropping rows that have an empty character entry for HOMEOWNR field
+smallercup <-
+  smallercup %>% filter(GENDER == "F" | GENDER == "M" )
+tally( ~ GENDER, data = smallercup)
+dim(smallercup)
+```
+
+To simplify the DOMAIN variable for analysis and to reduce the number of levels in the variable, I converted the DOMAIN column of smallercup dataset into a categorical variable, and then combined the levels city and urban C1, C2, C3, U1, U2, U3, and U4 into a single level C. I combined rural, suburb and town R1, R2, R3, S1, S2, S3, T1, T2, and T3 into a single level R. Also this filter allowed us to exclude any rows that contained a DOMAIN and GENDER entry that differed from these levels. As you can see, after doing so, our final wrangled dataset comprises 7 variables and 88239 observations. 
+
+## Results 
+
+## Exploratory Data Analysis (EDA)
+
+Referring to the Appendix [Before 1](#B1){#B1-ref}, the variable LASTGIFT exhibited a highly skewed distribution, with most of the data points concentrated towards the lower end of the scale and a few extreme outliers on the upper end. The median value was significantly different from the center of the box, and the whiskers were widely spread apart, indicating a substantial spread of the data. Our hypothesis is confirmed by the overlaid density plots as the distribution of `LASTGIFT` is right-skewed. Its center (median value) is 15 and its standard deviation is ~12.86. There seems to be potential outliers that heavily affect the distribution, since the maximum value of `LASTGIFT` is much larger than its third quantile value. These characteristics suggested that the data did not meet the assumptions of normality and equal variance required for linear regression analysis.To address this issue, we applied a log transformation to LASTGIFT, removing negative values and zeroes from the dataset, and also removed the identified outliers. After these transformations, we generated a box plot of the log-transformed variable, log(LASTGIFT), for each level of gender and domain. The resulting box plots showed a more symmetrical distribution, with the median values closer to the center of the boxes and no extreme outliers. This indicates that the transformed data is now more suitable for linear regression analysis, as it appears to satisfy the assumptions of normality and equal variance.
+
+```{r,include=FALSE, echo = FALSE}
+smallercup_filtered <- smallercup %>% filter(LASTGIFT > 0)
+smallercup_filtered %>%
+  mutate(logLASTGIFT = log(LASTGIFT)) %>%
+  filter(logLASTGIFT > -2) -> smallercup_filtered
+```
+
+Referring the Appendix [Interaction plot ](#I1){#I1-ref} it suggests that there is significant interaction effect between the predictor variables GENDER and DOMAIN on the outcome variable logLASTGIFT. The lines representing each level of the GENDER variable intersect. It differs across the different levels of GENDER. This implies that the effect of DOMAIN on logLASTGIFT is dependent on the gender of the individuals in the dataset.
+
+## Two-Way ANOVA Model
+
+The box plot [Figure- boxplotlog ](#bp1){#bp1-ref} of the log-transformed LASTGIFT variable shows that the data appears to be approximately normally distributed, since the sample size is relatively large and the log transformation was applied to the data, we can assume that the normality assumption is met. The box plot also shows that the residuals have approximately equal variance across the groups,the lines are aligned, indicating that the variance of the log-transformed LASTGIFT variable is similar across the different groups of DOMAIN and GENDER. Additionally, the middle line (median) of each box is approximately the same height, suggesting that the groups have similar central tendencies which is meeting the equal variance assumption. Additionally, since the data was collected independently, the independence assumption is met. There appear to be some outliers in the upper range of the data for each group of DOMAIN and GENDER. 
+
+```{r,  echo = FALSE}
+mod <- lm(logLASTGIFT~ DOMAIN*GENDER, data=smallercup_filtered)
+anova(mod)
+msummary(mod)
+```
+$$\widehat{log\_LASTGIFT}=2.68592-0.01749(DOMAIN)+0.05775(GENDEM)-0.00754(DOMAIN:GENDER)$$
+
+## Checking Conditions
+
+Referring the Appendix [Figure_mod ](#M1){#M1-ref} the QQ plot shows there is deviations from the expected diagonal line, suggesting that the residuals may not follow a normal distribution. The plot of residuals against fitted values has no clear pattern or structure is observed, indicating that the assumption of equal variance (homoscedasticity) may hold reasonably well.
+
+## TukeyHSD
+
+From the output [TukeyHSD ](#TH1){#TH1-ref} For City and Urban domain, we are 95% confident that the males have a mean of lasttime gift donors is between 1.0422% and 1.0872% upper than that of the female in City and Urban. The effect size of the sex effect in City and Urban domain is 1.912 times the location to location variation.  
+
+For Rural,Suburban, and Town domain, we are 95% confident that the males have a mean of lasttime gift donors is between 1.0139% and 1.0575% upper than that of the female in Rural,Suburban, and Town domain. The effect size of the sex effect in Rural,Suburban, and Town domain is 1.850 times location to location variation.  
+
+There is no statistically significant difference between the mean of lasttime gift male donors who lived in Rural,Suburban, and Town domain versus the mean of lasttime gift females donors who lived in city and urban domain.
+
+## MLR
+
+Referring [Scatterplot ](#S1){#S1-ref}  on the scatterplot matrix, none of the variables appear to have a strong (or even moderate) association with the response variable. This lack of correlation could potentially pose difficulties when creating a multiple linear regression model. However, since this is real-world data, it is not unexpected to encounter less than ideal correlation coefficients.It is worth noting that all variables, have heavily right-skewed distributions according to the plots above. Each pairwise scatterplot displays outliers. 
+
+```{r, warning=FALSE}
+## Parallel-Slope Model (ANCOVA without Interaction):
+lm2 <- 
+  lm(logLASTGIFT ~ FEDGOV + LOCALGOV + MAXADATE + NUMPROM + DOMAIN + GENDER, data = smallercup_filtered)
+```
+
+Referring Appendix [lm2 ](#l2){#l2-ref} the multiple linear regression model appears to be unsatisfactory as the multiple R-squared and adjusted R-squared values are relatively small, indicating that our five predictors can only account for about 1.82% of the variability in the response variable. Although the overall F-test and individual t-tests, except for `FEDGOV`, `LOCALGOV`, and `MAXADATE`, show statistical significance, the normality condition is not met as evident from significant deviation from the reference line in the QQ plot, especially on the right side on top (since the data is right-skewed and the plots reveal three potential outliers) and at the bottom. The residual vs fitted value plot does not show any interesting pattern (indicating linearity), but there is an unequal spread and non-uniform distribution of points around the horizontal line of 0 as the fitted values increase, which indicates that the equal variance assumption might not hold and we should proceed with caution. Since the dataset was found online, we can assume that the datapoints are independent of each other and our dataset is a random sample and representative of the actual population. there appears to be no serious multicollinearity issues since all VIF values are smaller than 5.
+
+Thus far, we have evaluated the parallel slope Model (ANCOVA without interaction), However, we now seek to determine if an interaction term is necessary for `DOMAIN` and `GENDER`, the  categorical variable of interest that showed no significance in the parallel slope model. To achieve this, we plan to test four different models by including the interaction term between `DOMAIN` and `GENDER` and each of our quantitative predictors. Our evaluation process will involve utilizing the Best Subsets and Mallow's Cp technique to assess each model.In each of these models, the one with the lowest cp and bic was a model that only included four predictors and effectively had no interaction term.when we added the interaction term, the adjusted R-squared value decreased, which suggests that the additional complexity of the interaction term did not improve the model's overall predictive power.The model with the highest VIF value is the one with the interaction term. This indicates that the interaction term is contributing to the multicollinearity in the model.
+
+Based on the models which is in the appendix, is in the appendix, [Best subset 1](#b1){#b1-ref} the following MLR model is suggested since it had the lowest cp and bic values: 
+
+`logLASTGIFT` ~ `MAXADATE` + `NUMPROM` + `DOMAIN` + `GENDER`
+
+
+`logLASTGIFT` ~ `MAXADATE` + `NUMPROM` + `DOMAIN` + `GENDER` + `FEDGOV`
+
+Let us proceed with fitting the two models recommended by the best subsets function.
+
+```{r, include=FALSE, echo = FALSE}
+lm3 <- 
+  lm(logLASTGIFT ~ MAXADATE + NUMPROM + DOMAIN + GENDER, data = smallercup_filtered)
+```
+ 
+
+```{r, include=FALSE, echo = FALSE}
+lm4 <- 
+  lm(logLASTGIFT ~ MAXADATE + NUMPROM + DOMAIN + GENDER +FEDGOV , data = smallercup_filtered)
+```  
+
+
+### Nested F-test
+
+Referring [Nested 1](#N1){#N1-ref} Given the high p-value for the individual t-test of the `FEDGOV` and `LOCALGOV` variable in previous models, we remain skeptical of its significance. As the smaller model (`lm3`) is a subset of the larger model (`lm2`), we can conduct a nested F-test to determine if the two additional predictors in the larger model are actually needed. Although AV (added-variable) plots could also be utilized, given that the larger model incorporates two additional variables (including the interaction term), a nested F-test would be more straightforward to test for the significance of these extra predictors.
+
+A p-value of 0.39 (> 0.05) indicates an insignificant test result (there is a greater than 5% chance that one or more of the predictor variables have no significant effect on the response variable), which suggests that the simpler model is likely a better choice. The additional predictors in the more complex model do not appear to contribute enough to be significant, and as a result, we will proceed with the simpler model. 
+
+### Outliers
+
+```{r, include=FALSE, echo = FALSE}
+# identify potential outliers
+pts <- which(abs(rstandard(lm3)) > 2 | hatvalues(lm3) > 2*4/nrow(smallercup_filtered))
+length(pts)
+smallercup_filtered.new <- smallercup_filtered[-pts,]
+```
+
+As evident from the plots [Outliers 1](#O1){#O1-ref} above, none of the points seem to be influential as their Cook's values are significantly less than 0.5 except one point(we will drop that) . However, we can observe that there are many (7194) data points that have either a standardized residual value greater than 2 (in magnitude) or a leverage value exceeding the 0.0007 cutoff. These points have the potential to be outliers and can be problematic to our analysis. Therefore, we will remove these data points from our dataset and refit the model using the remaining data to ensure our results are not adversely affected by these potential outliers.
+
+### Final Model
+
+```{r, fig.width=3.5, fig.height=2.8, echo=FALSE}
+lm5 <-
+  lm(logLASTGIFT ~  (NUMPROM) + (MAXADATE)+ (DOMAIN) + (GENDER), data = smallercup_filtered.new)
+msummary(lm5)
+mplot(lm5, which = 1)
+mplot(lm5, which = 2)
+vif(lm5)
+```
+
+Upon analyzing the final model(removing big outliers and points with problematic leverage), we observe that the regression assumptions of linearity, homoscedasticity (equal variance), and normality appear to be significantly improved but not perfect, but it is the best we are going to get with the dataset. Additionally, both the overall F-test and individual t-tests are significant which further reinforcing the strength of our model.Furthermore, this model has  the lowest standard residual error, indicating that it is a model with a high level of predictive capability.The multiple R-squared value of 0.0504 indicates that approximately 5.04% of the variability in the response variable logLASTGIFT can be explained by the predictors included in the model. In other words, the predictors (NUMPROM, MAXADATE, DOMAIN, and GENDER) collectively account for 5.04% of the total variation in the response variable which is significantly better than the first model which was 1.84% refer the Appendix [lm2 ](#l2){#l2-ref} All the VIFs are also less than 5, which is reassuring as it suggests that multicollinearity should not be a concerns. In conclusion, the final model appears to be effective model that satisfies the necessary regression assumptions and has low predictive power.
+
+$$\widehat{logLASTGIFT}=-8.49e+03-4.51e-03(NUMPROM)+8.76e-01 (MAXADATE)-1.70e-02(DOMAINR)+4.92e-02(GENDERM)$$      
+
+Although the intercept in the model is not meaningful or interpretable in and of itself, we can infer that `NUMPROM` and `DOMAIAN` has a negative correlation with the log dollar amount of `LASTGIFT`. Conversely, the other two predictors, `GENDER` and `MAXADATE`, exhibit a positive correlation with our response variable, as indicated by their respective regression coefficient values. Our model predicts that, For each unit increase in NUMPROM, the expected value of LASTGIFT decreases by a factor of e^(4.51e-03) = 1.004.. For each unit increase in MAXADATE, the expected value of LASTGIFT increases by a factor of e^(8.76e-01) = 2.718. For each unit increase in DOMAINR, the expected value of LASTGIFT increases by a factor of e^(-1.70e-02)= 0.983. For each unit increase in MAXADATE, the expected value of GENDERM increases by a factor of e^( 4.92e-02)= 1.0507. 
+
+
+## Conclusions & Findings
+
+In conclusion, our objective was to investigate the factors influencing charitable giving to paralyzed veterans and determine their impact on the dollar amount of the most recent gift. While our findings indicated that variables such as MAXADATE, NUMPROM, DOMAIN, and GENDER were significant predictors of the total value of lifetime gifts given, we did not find significant associations between FEDGOV and LOCALGOV status and the average amount of most recent gifts. The findings of our study were somewhat surprising, as they deviated from the expectations set by the literature review. Previous research may have suggested different variables as significant predictors, highlighting the complexity and variability of factors influencing charitable giving.However, it is important to acknowledge the limitations of our findings. The assumptions of normality for the residuals were violated, potentially impacting the validity of our conclusions. Future research should consider alternative methods such as randomization tests or bootstrapping to assess the significance of predictors, ensuring robustness in the analysis.Overall, our study sheds light on the variables that influence charitable giving to paralyzed veterans and provides insights for fundraising and support strategies. The significant predictors identified can guide organizations in developing targeted approaches to increase donations and support for this deserving cause.
+
+## References:
+
+*Source:* KDD Cup 1998 data - University of California, Irvine. (n.d.). Retrieved March 9, 2023, from https://kdd.ics.uci.edu/databases/kddcup98/kddcup98.html
+
+
+\newpage
+
+# Appendix
+
+#### Before 1 {#B1}
+
+Dataset before transformation [(Return To Report)](#B1-ref)
+
+```{r,echo = FALSE, fig.width=7, fig.height=3.5}
+msummary(smallercup)
+favstats( ~ LASTGIFT, data = smallercup)
+tally(~ DOMAIN, data = smallercup)
+tally(~ GENDER, data = smallercup)
+dplot <- gf_boxplot(LASTGIFT ~ DOMAIN,
+                    color = ~ DOMAIN,
+                    data = smallercup) +
+  ggtitle("Before_transformation")
+
+gplot <- gf_boxplot(LASTGIFT ~ GENDER,
+                    color = ~ GENDER,
+                    data = smallercup)
+
+grid.arrange(dplot, gplot, ncol = 2)
+```
+
+#### Boxplotlog {#bp1}
+
+Multivariate analysis for two-way ANOVA model [(Return To Report)](#bp1-ref)
+
+```{r, echo = FALSE}
+dplot <- gf_boxplot(logLASTGIFT ~ DOMAIN,
+                    color = ~ DOMAIN,
+                    data = smallercup_filtered) +
+  ggtitle("Figure 1")
+
+gplot <- gf_boxplot(logLASTGIFT ~ GENDER,
+                    color = ~ GENDER,
+                    data = smallercup_filtered)
+
+grid.arrange(dplot, gplot, ncol = 2)
+```
+
+#### Interaction plot {#I1}
+
+generated to visualize the interaction effect between the variables "DOMAIN" and "GENDER" on the dependent variable "logLASTGIFT".
+
+Interaction plot [(Return To Report)](#I1-ref)
+
+```{r, fig.width=7, fig.height=3.5}
+with(smallercup_filtered, {
+  interaction.plot(DOMAIN, GENDER, logLASTGIFT, main = "Figure Interaction Plot")
+})
+```
+
+## Figure_mod {#M1}
+
+Residual plots for Two-Way ANOVA [(Return To Report)](M1-ref)
+
+```{r fig.width=3.3, fig.height=3.3, warning=FALSE, message=FALSE, echo=FALSE}
+mplot(mod, which = 1) 
+mplot(mod, which = 2)
+```
+
+#### Scatterplot {#S1}
+
+Scatterplot on the quantitative variables [(Return To Report)](#S1-ref)
+
+```{r, fig.width=7, fig.height=7, echo=FALSE, message=FALSE}
+smallercup_subset <- smallercup_filtered[, c("logLASTGIFT", "FEDGOV", "LOCALGOV", "MAXADATE" , "NUMPROM")]
+ggpairs(smallercup_subset, columns = c("logLASTGIFT", "FEDGOV", "LOCALGOV", "MAXADATE" , "NUMPROM"))
+cor(smallercup_subset)
+```
+
+
+#### TukeyHSD {#TH2}
+
+TukeyHSD output [(Return To Report)](#TH2-ref)
+
+```{r, echo=FALSE}
+TukeyHSD(mod)
+```
+
+#### lm2 {#l2}
+MLR for model 2 [(Return To Report)](#l2-ref)
+
+```{r, warning=FALSE}
+msummary(lm2)
+mplot(lm2, which = 1)
+mplot(lm2, which = 2)
+vif(lm2)
+```
+
+
+#### Best subset 1 {#b1}
+
+Best Subsets and Mallow's Cp [(Return To Report)](#b1-ref)
+
+```{r, echo=FALSE}
+best.sub <-
+  regsubsets(logLASTGIFT ~ FEDGOV + DOMAIN + GENDER + LOCALGOV + MAXADATE + NUMPROM, data = smallercup_filtered)
+with(msummary(best.sub), data.frame(adjr2, cp, bic, rss, outmat)) %>%
+  kable(digits = 3, booktabs = TRUE) %>%
+  row_spec(row = 0, angle = 90) 
+
+```
+
+```{r, include=FALSE, echo = FALSE}
+best.sub <-
+  regsubsets(logLASTGIFT ~ FEDGOV*DOMAIN* GENDER + LOCALGOV + MAXADATE + NUMPROM, data = smallercup_filtered)
+with(msummary(best.sub), data.frame(adjr2, cp, bic, rss, outmat)) %>%
+  kable(digits = 3, booktabs = TRUE) %>%
+  row_spec(row = 0, angle = 90) 
+
+best.sub <- regsubsets(logLASTGIFT ~ FEDGOV + LOCALGOV *DOMAIN* GENDER + MAXADATE + NUMPROM, data = smallercup_filtered)
+with(msummary(best.sub), data.frame(adjr2, cp, bic, rss, outmat)) %>%
+kable(digits = 3, booktabs = TRUE) %>%
+row_spec(row = 0, angle = 90) 
+
+best.sub <- regsubsets(logLASTGIFT ~ FEDGOV + LOCALGOV + MAXADATE *DOMAIN* GENDER + NUMPROM, data = smallercup_filtered)
+with(msummary(best.sub), data.frame(adjr2, cp, bic, rss, outmat)) %>%
+kable(digits = 3, booktabs = TRUE) %>%
+row_spec(row = 0, angle = 90) 
+
+best.sub <- regsubsets(logLASTGIFT ~ FEDGOV + LOCALGOV + MAXADATE + NUMPROM*DOMAIN* GENDER, data = smallercup_filtered)
+with(msummary(best.sub), data.frame(adjr2, cp, bic, rss, outmat)) %>%
+kable(digits = 3, booktabs = TRUE) %>%
+row_spec(row = 0, angle = 90) 
+```
+
+#### Nested F-test
+
+used to perform an analysis of variance (ANOVA) between two linear regression models, lm3 and lm4, in order to compare their performance and determine if the addition of certain variables significantly improves the model fit.
+
+Nested 1 [(Return To Report)](#N1-ref)
+
+```{r}
+anova(lm3, lm4)
+```
+
+#### Ouliers {#01}
+
+examining and visualizing potential outliers in our data. 
+
+Ouliers [(Return To Report)](#O1-ref)
+
+```{r, fig.width=3.2, fig.height=2.8, echo=FALSE, message=FALSE}
+mplot(lm3, which = 5)
+mplot(lm3, which = 6) 
+```
